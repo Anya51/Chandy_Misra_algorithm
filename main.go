@@ -8,23 +8,24 @@ import (
 
 //Token ...
 type Token struct {
-	Sender  string
-	Distp   float64
-	Parentp *int
-	value   int
+	Sender string
+}
+
+type MSG struct {
+	dist float64
+	id   string
+}
+
+type Token struct {
+	Sender string
 }
 
 //Neighbour ...
 type Neighbour struct {
-	ID   string
-	From chan Token
-	To   chan Token
-}
-
-func redirect(in chan Token, neigh Neighbour) {
-	token := <-neigh.From
-	fmt.Println(token)
-	in <- token
+	id    string
+	From  chan MSG
+	To    chan MSG
+	Value int
 }
 
 /*
@@ -35,7 +36,7 @@ func (id string, token Token, neighs ...Neighbour) {
 	in := make(chan Token, 1)
 	nmap := make(map[string]Neighbour)
 	for _, neigh := range neighs {
-		nmap[neigh.Id] = neigh
+		nmap[neigh.id] = neigh
 		go redirect(in, neigh)
 	}
 
@@ -59,12 +60,12 @@ func (id string, token Token, neighs ...Neighbour) {
 		tk := <-in
 		fmt.Printf("From %s to %s\n", tk.Sender, id)
 		for _, neigh := range neighs {
-			if pai.Id == "" {
+			if pai.id == "" {
 				pai = nmap[tk.Sender]
-				fmt.Printf("* %s é pai de %s\n", pai.Id, id)
+				fmt.Printf("* %s é pai de %s\n", pai.id, id)
 			}
 			// Entrega o token para o vizinho se ele não for o pai
-			if pai.Id != neigh.Id {
+			if pai.id != neigh.id {
 				tk.Sender = id
 				neigh.To <- tk
 				tk = <-in
@@ -78,45 +79,57 @@ func (id string, token Token, neighs ...Neighbour) {
 
 }
 */
-func process1(ID string, token Token, neighs ...Neighbour) {
+
+func redirect(in chan Token, neigh Neighbour) {
+	token := <-neigh.From
+	in <- token
+}
+
+func process1(id string, token Token, neighs ...Neighbour) {
+	var parent Neighbour
 
 	in := make(chan Token, 1)
 	nmap := make(map[string]Neighbour)
 	for _, neigh := range neighs {
-		nmap[neigh.ID] = neigh
+		nmap[neigh.id] = neigh
 		go redirect(in, neigh)
 	}
 
 	if token.Sender == "init" {
 		// o iniciador
-		fmt.Printf("* %s é raiz.\n", ID)
-		token.Distp = 0
-		token.Parentp = nil
-		token.Sender = ID
+		dist := 0.0
+		//parent = nil
+		token.Sender = id
+		msg := MSG{dist, id}
 
-		neighs[0].To <- token
+		for _, neigh := range neighs {
+			neigh.To <- msg
+		}
 
-		tk := <-in
-		fmt.Printf("From %s to %s\n", tk.Sender, ID)
 	} else {
 
-		tk := <-in
-
-		fmt.Printf("hi From %s to %s\n", tk.Sender, ID)
-		neighs[1].To <- tk
-		token.Distp = math.Inf(1)
-		token.Parentp = nil
+		dist := math.Inf(1)
+		//token.Parentp = nil
 	}
 }
 
 func main() {
 
 	pQ := make(chan Token, 1)
-	pR := make(chan Token, 1)
 	qP := make(chan Token, 1)
+
+	ValueQP := 2
+
+	pR := make(chan Token, 1)
+	rP := make(chan Token, 1)
+
+	ValuePR := 2
+
 	qR := make(chan Token, 1)
 	rQ := make(chan Token, 1)
-	rP := make(chan Token, 1)
+
+	ValueQR := 2
+
 	/*
 		rT := make(chan Token, 1)
 		rS := make(chan Token, 1)
@@ -127,8 +140,8 @@ func main() {
 	*/
 	//	go process1("T", Token{}, Neighbour{"R", rT, tR}, Neighbour{"S", sT, tS})
 	//	go process1("S", Token{}, Neighbour{"R", rS, sR}, Neighbour{"T", tS, sT})
-	go process1("R", Token{}, Neighbour{"Q", qR, rQ}, Neighbour{"P", pR, rP}) //, Neighbour{"T", tR, rT}, Neighbour{"S", sR, rS})
-	go process1("Q", Token{}, Neighbour{"P", pQ, qP}, Neighbour{"R", rQ, qR})
-	process1("P", Token{Sender: "init"}, Neighbour{"Q", qP, pQ}, Neighbour{"R", rP, pR})
+	go process1("R", Token{}, Neighbour{"Q", qR, rQ, ValueQR}, Neighbour{"P", pR, rP, ValuePR}) //, Neighbour{"T", tR, rT}, Neighbour{"S", sR, rS})
+	go process1("Q", Token{}, Neighbour{"P", pQ, qP, ValueQP}, Neighbour{"R", rQ, qR, ValueQR})
+	process1("P", Token{Sender: "init"}, Neighbour{"Q", qP, pQ, ValueQP}, Neighbour{"R", rP, pR, ValuePR})
 
 }
